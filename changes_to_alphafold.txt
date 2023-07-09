@@ -1,0 +1,552 @@
+Only in alphafold/data: custom_templates.py
+diff -b -u -r alphafold/data/feature_processing.py ../alphafold_v2.2/alphafold/data/feature_processing.py
+--- alphafold/data/feature_processing.py	2023-01-04 10:52:45.506208747 -0500
++++ ../alphafold_v2.2/alphafold/data/feature_processing.py	2022-05-09 17:08:36.348921075 -0400
+@@ -60,6 +60,7 @@
+   process_unmerged_features(all_chain_features)
+ 
+   np_chains_list = list(all_chain_features.values())
++
+   pair_msa_sequences = not _is_homomer_or_monomer(np_chains_list)
+ 
+   if pair_msa_sequences:
+diff -b -u -r alphafold/data/parsers.py ../alphafold_v2.2/alphafold/data/parsers.py
+--- alphafold/data/parsers.py	2023-03-07 11:19:39.153783844 -0500
++++ ../alphafold_v2.2/alphafold/data/parsers.py	2022-12-14 15:58:19.970260694 -0500
+@@ -91,11 +91,6 @@
+       continue  # Skip blank lines.
+     sequences[index] += line
+ 
+-  # Use gap to break a single chain
+-  for index,sequence in enumerate(sequences):
+-    if ":" in sequence:
+-      sequences[index]=sequence.upper().split(":")
+-      
+   return sequences, descriptions
+ 
+ 
+@@ -301,25 +296,6 @@
+ 
+   return ''.join(filtered_lines)
+ 
+-def truncate_stockholm_msa2(stockholm_msa: str, max_sequences: int) -> str:
+-  """Reads + truncates a Stockholm alignment - BP 12/15/22."""
+-  seqnames = set()
+-  filtered_lines = []
+-  
+-  for line in stockholm_msa.splitlines():    
+-    if line.strip() and not line.startswith(('#', '//')):
+-      # Ignore blank lines, markup and end symbols - remainder are alignment
+-      # sequence parts.
+-      seqname = line.partition(' ')[0]
+-      seqnames.add(seqname)
+-      if len(seqnames) >= max_sequences:
+-        break
+-
+-  for line in stockholm_msa.splitlines():
+-    if _keep_line(line, seqnames):
+-      filtered_lines.append(line)
+-
+-  return '\n'.join(filtered_lines) + '\n'
+ 
+ def remove_empty_columns_from_stockholm_msa(stockholm_msa: str) -> str:
+   """Removes empty columns (dashes-only) from a Stockholm MSA."""
+@@ -434,7 +410,7 @@
+   # Parse first 2 lines.
+   number_of_hit = int(detailed_lines[0].split()[-1])
+   name_hit = detailed_lines[1][1:]
+-
++  print("detailed_line:%s " % str(detailed_lines[2]))
+   # Parse the summary line.
+   pattern = (
+       'Probab=(.*)[\t ]*E-value=(.*)[\t ]*Score=(.*)[\t ]*Aligned_cols=(.*)[\t'
+Only in alphafold/data: pipeline_custom_templates.py
+Only in alphafold/data: pipeline_multimer_custom_templates.py
+diff -b -u -r alphafold/data/pipeline_multimer.py ../alphafold_v2.2/alphafold/data/pipeline_multimer.py
+--- alphafold/data/pipeline_multimer.py	2023-03-07 11:21:00.749011883 -0500
++++ ../alphafold_v2.2/alphafold/data/pipeline_multimer.py	2022-05-09 17:08:36.357921193 -0400
+@@ -200,10 +200,7 @@
+       sequence: str,
+       description: str,
+       msa_output_dir: str,
+-      is_homomer_or_monomer: bool,
+-      save_msa_fasta: bool,
+-      save_template_names: bool,
+-      msa_for_template_query_seq_only: bool) -> pipeline.FeatureDict:
++      is_homomer_or_monomer: bool) -> pipeline.FeatureDict:
+     """Runs the monomer pipeline on a single chain."""
+     chain_fasta_str = f'>chain_{chain_id}\n{sequence}\n'
+     chain_msa_output_dir = os.path.join(msa_output_dir, chain_id)
+@@ -214,10 +211,7 @@
+                    chain_id, description)
+       chain_features = self._monomer_data_pipeline.process(
+           input_fasta_path=chain_fasta_path,
+-          msa_output_dir=chain_msa_output_dir,
+-          save_msa_fasta=save_msa_fasta,
+-          save_template_names=save_template_names,
+-          msa_for_template_query_seq_only=msa_for_template_query_seq_only)
++          msa_output_dir=chain_msa_output_dir)
+ 
+       # We only construct the pairing features if there are 2 or more unique
+       # sequences.
+@@ -245,10 +239,7 @@
+ 
+   def process(self,
+               input_fasta_path: str,
+-              msa_output_dir: str,
+-              save_msa_fasta: bool,
+-              save_template_names: bool,
+-              msa_for_template_query_seq_only: bool) -> pipeline.FeatureDict:
++              msa_output_dir: str) -> pipeline.FeatureDict:
+     """Runs alignment tools on the input sequences and creates features."""
+     with open(input_fasta_path) as f:
+       input_fasta_str = f.read()
+@@ -275,10 +266,7 @@
+           sequence=fasta_chain.sequence,
+           description=fasta_chain.description,
+           msa_output_dir=msa_output_dir,
+-          is_homomer_or_monomer=is_homomer_or_monomer,
+-          save_msa_fasta=save_msa_fasta,
+-          save_template_names=save_template_names,
+-          msa_for_template_query_seq_only=msa_for_template_query_seq_only)
++          is_homomer_or_monomer=is_homomer_or_monomer)
+ 
+       chain_features = convert_monomer_features(chain_features,
+                                                 chain_id=chain_id)
+diff -b -u -r alphafold/data/pipeline.py ../alphafold_v2.2/alphafold/data/pipeline.py
+--- alphafold/data/pipeline.py	2023-03-07 11:22:18.847187291 -0500
++++ ../alphafold_v2.2/alphafold/data/pipeline.py	2022-12-14 16:33:15.504019588 -0500
+@@ -147,11 +147,7 @@
+     self.uniref_max_hits = uniref_max_hits
+     self.use_precomputed_msas = use_precomputed_msas
+ 
+-  def process(self, input_fasta_path: str, 
+-              msa_output_dir: str, 
+-              save_msa_fasta: bool, 
+-              save_template_names: bool,
+-              msa_for_template_query_seq_only: bool) -> FeatureDict:
++  def process(self, input_fasta_path: str, msa_output_dir: str) -> FeatureDict:
+     """Runs alignment tools on the input sequence and creates features."""
+     with open(input_fasta_path) as f:
+       input_fasta_str = f.read()
+@@ -184,9 +180,6 @@
+     msa_for_templates = parsers.deduplicate_stockholm_msa(msa_for_templates)
+     msa_for_templates = parsers.remove_empty_columns_from_stockholm_msa(
+         msa_for_templates)
+-    if msa_for_template_query_seq_only:
+-      '''BP 12/15/22 let's just keep the target (query) sequence'''
+-      msa_for_templates = parsers.truncate_stockholm_msa2(msa_for_templates, 1)
+ 
+     if self.template_searcher.input_format == 'sto':
+       pdb_templates_result = self.template_searcher.query(msa_for_templates)
+@@ -238,19 +231,6 @@
+ 
+     msa_features = make_msa_features((uniref90_msa, bfd_msa, mgnify_msa))
+ 
+-    if save_msa_fasta:
+-      msa_outpath=os.path.join(msa_output_dir, 'msa_feat_gaptoU.fasta')
+-      with open(msa_outpath, 'w+') as fh:
+-        fh.write(">query"+"\n"+input_sequence+"\n")
+-        counter=1
+-        for seq in msa_features['msa']:
+-            seq=[residue_constants.ID_TO_HHBLITS_AA[num] for num in seq]
+-            # for x in range(len(seq)):
+-            counter+=1
+-            fh.write(">seq_"+str(counter)+"\n")
+-            out="".join(seq).replace("-","U")
+-            fh.write(out+"\n")
+-            
+     logging.info('Uniref90 MSA size: %d sequences.', len(uniref90_msa))
+     logging.info('BFD MSA size: %d sequences.', len(bfd_msa))
+     logging.info('MGnify MSA size: %d sequences.', len(mgnify_msa))
+@@ -260,12 +240,4 @@
+                  'templates and is later filtered to top 4): %d.',
+                  templates_result.features['template_domain_names'].shape[0])
+ 
+-    if save_template_names:
+-      temp_name_fn=os.path.join(msa_output_dir, 'template_names.txt')
+-      # with open(temp_name_fn, 'w+') as fh:
+-      #     fh.write("\n".join((map(str,templates_result.features['template_domain_names']))))
+-      template_names=[name.decode('utf-8') for name in templates_result.features['template_domain_names']]
+-      with open(temp_name_fn, 'w+') as fh:
+-          fh.write("\n".join(template_names))
+-          
+     return {**sequence_features, **msa_features, **templates_result.features}
+diff -b -u -r alphafold/data/templates.py ../alphafold_v2.2/alphafold/data/templates.py
+--- alphafold/data/templates.py	2023-01-04 10:52:44.782200061 -0500
++++ ../alphafold_v2.2/alphafold/data/templates.py	2022-12-14 15:52:00.613864540 -0500
+@@ -951,6 +951,7 @@
+       sorted_hits = hits
+     else:
+       sorted_hits = sorted(hits, key=lambda x: x.sum_probs, reverse=True)
++    # print("sorted_hits[0].sum_probs  is %s" %(str(sorted_hits[0].sum_probs)))
+ 
+     for hit in sorted_hits:
+       # We got all the templates we wanted, stop processing hits.
+diff -b -u -r alphafold/model/all_atom_multimer.py ../alphafold_v2.2/alphafold/model/all_atom_multimer.py
+--- alphafold/model/all_atom_multimer.py	2023-01-04 10:52:38.988130547 -0500
++++ ../alphafold_v2.2/alphafold/model/all_atom_multimer.py	2022-05-09 17:08:36.377921454 -0400
+@@ -426,7 +426,7 @@
+   chi3_frame_to_backb = chi2_frame_to_backb @ all_frames[:, 6]
+   chi4_frame_to_backb = chi3_frame_to_backb @ all_frames[:, 7]
+ 
+-  all_frames_to_backb = jax.tree_map(
++  all_frames_to_backb = jax.tree_multimap(
+       lambda *x: jnp.concatenate(x, axis=-1), all_frames[:, 0:5],
+       chi2_frame_to_backb[:, None], chi3_frame_to_backb[:, None],
+       chi4_frame_to_backb[:, None])
+diff -b -u -r alphafold/model/folding_multimer.py ../alphafold_v2.2/alphafold/model/folding_multimer.py
+--- alphafold/model/folding_multimer.py	2023-01-04 10:52:35.697091063 -0500
++++ ../alphafold_v2.2/alphafold/model/folding_multimer.py	2022-05-09 17:08:36.388921598 -0400
+@@ -546,7 +546,7 @@
+         )
+     outputs.append(output)
+ 
+-  output = jax.tree_map(lambda *x: jnp.stack(x), *outputs)
++  output = jax.tree_multimap(lambda *x: jnp.stack(x), *outputs)
+   # Pass along for LDDT-Head.
+   output['act'] = activations['act']
+ 
+@@ -789,7 +789,7 @@
+   loss_fn = functools.partial(
+       all_atom_multimer.frame_aligned_point_error,
+       l1_clamp_distance=config.atom_clamp_distance,
+-      length_scale=config.loss_unit_distance)
++      loss_unit_distance=config.loss_unit_distance)
+ 
+   loss_fn = jax.vmap(loss_fn, (0, None, None, 0, None, None, None))
+   fape = loss_fn(target_rigid, gt_rigid, gt_frames_mask,
+@@ -823,7 +823,7 @@
+   alt_gt_frames = frames_batch['rigidgroups_alt_gt_frames']
+   use_alt = use_alt[:, None]
+ 
+-  renamed_gt_frames = jax.tree_map(
++  renamed_gt_frames = jax.tree_multimap(
+       lambda x, y: (1. - use_alt) * x + use_alt * y, gt_frames, alt_gt_frames)
+ 
+   return renamed_gt_frames, frames_batch['rigidgroups_gt_exists']
+@@ -1160,3 +1160,4 @@
+         'frames': all_frames_to_global,  # geometry.Rigid3Array (N, 8)
+     })
+     return outputs
++
+diff -b -u -r alphafold/model/geometry/rigid_matrix_vector.py ../alphafold_v2.2/alphafold/model/geometry/rigid_matrix_vector.py
+--- alphafold/model/geometry/rigid_matrix_vector.py	2023-01-04 10:52:39.403135526 -0500
++++ ../alphafold_v2.2/alphafold/model/geometry/rigid_matrix_vector.py	2022-05-09 17:08:36.392921651 -0400
+@@ -65,7 +65,7 @@
+     """Return identity Rigid3Array of given shape."""
+     return cls(
+         rotation_matrix.Rot3Array.identity(shape, dtype=dtype),
+-        vector.Vec3Array.zeros(shape, dtype=dtype))  # pytype: disable=wrong-arg-count  # trace-all-classes
++        vector.Vec3Array.zeros(shape, dtype=dtype))
+ 
+   def scale_translation(self, factor: Float) -> Rigid3Array:
+     """Scale translation in Rigid3Array by 'factor'."""
+@@ -80,7 +80,7 @@
+   def from_array(cls, array):
+     rot = rotation_matrix.Rot3Array.from_array(array[..., :3])
+     vec = vector.Vec3Array.from_array(array[..., -1])
+-    return cls(rot, vec)  # pytype: disable=wrong-arg-count  # trace-all-classes
++    return cls(rot, vec)
+ 
+   @classmethod
+   def from_array4x4(cls, array: jnp.ndarray) -> Rigid3Array:
+@@ -94,7 +94,7 @@
+         )
+     translation = vector.Vec3Array(
+         array[..., 0, 3], array[..., 1, 3], array[..., 2, 3])
+-    return cls(rotation, translation)  # pytype: disable=wrong-arg-count  # trace-all-classes
++    return cls(rotation, translation)
+ 
+   def __getstate__(self):
+     return (VERSION, (self.rotation, self.translation))
+diff -b -u -r alphafold/model/geometry/rotation_matrix.py ../alphafold_v2.2/alphafold/model/geometry/rotation_matrix.py
+--- alphafold/model/geometry/rotation_matrix.py	2023-01-04 10:52:39.191132983 -0500
++++ ../alphafold_v2.2/alphafold/model/geometry/rotation_matrix.py	2022-05-09 17:08:36.394921677 -0400
+@@ -73,7 +73,7 @@
+     """Returns identity of given shape."""
+     ones = jnp.ones(shape, dtype=dtype)
+     zeros = jnp.zeros(shape, dtype=dtype)
+-    return cls(ones, zeros, zeros, zeros, ones, zeros, zeros, zeros, ones)  # pytype: disable=wrong-arg-count  # trace-all-classes
++    return cls(ones, zeros, zeros, zeros, ones, zeros, zeros, zeros, ones)
+ 
+   @classmethod
+   def from_two_vectors(cls, e0: vector.Vec3Array,
+@@ -96,7 +96,7 @@
+     e1 = (e1 - c * e0).normalized()
+     # Compute e2 as cross product of e0 and e1.
+     e2 = e0.cross(e1)
+-    return cls(e0.x, e1.x, e2.x, e0.y, e1.y, e2.y, e0.z, e1.z, e2.z)  # pytype: disable=wrong-arg-count  # trace-all-classes
++    return cls(e0.x, e1.x, e2.x, e0.y, e1.y, e2.y, e0.z, e1.z, e2.z)
+ 
+   @classmethod
+   def from_array(cls, array: jnp.ndarray) -> Rot3Array:
+@@ -137,7 +137,7 @@
+     zx = 2 * (x * z - w * y)
+     zy = 2 * (y * z + w * x)
+     zz = 1 - 2 * (jnp.square(x) + jnp.square(y))
+-    return cls(xx, xy, xz, yx, yy, yz, zx, zy, zz)  # pytype: disable=wrong-arg-count  # trace-all-classes
++    return cls(xx, xy, xz, yx, yy, yz, zx, zy, zz)
+ 
+   @classmethod
+   def random_uniform(cls, key, shape, dtype=jnp.float32) -> Rot3Array:
+diff -b -u -r alphafold/model/geometry/vector.py ../alphafold_v2.2/alphafold/model/geometry/vector.py
+--- alphafold/model/geometry/vector.py	2023-01-04 10:52:39.086131722 -0500
++++ ../alphafold_v2.2/alphafold/model/geometry/vector.py	2022-05-09 17:08:36.400921755 -0400
+@@ -53,10 +53,10 @@
+       assert all([x == z for x, z in zip(self.x.shape, self.z.shape)])
+ 
+   def __add__(self, other: Vec3Array) -> Vec3Array:
+-    return jax.tree_map(lambda x, y: x + y, self, other)
++    return jax.tree_multimap(lambda x, y: x + y, self, other)
+ 
+   def __sub__(self, other: Vec3Array) -> Vec3Array:
+-    return jax.tree_map(lambda x, y: x - y, self, other)
++    return jax.tree_multimap(lambda x, y: x - y, self, other)
+ 
+   def __mul__(self, other: Float) -> Vec3Array:
+     return jax.tree_map(lambda x: x * other, self)
+@@ -104,7 +104,7 @@
+     """Return Vec3Array corresponding to zeros of given shape."""
+     return cls(
+         jnp.zeros(shape, dtype), jnp.zeros(shape, dtype),
+-        jnp.zeros(shape, dtype))  # pytype: disable=wrong-arg-count  # trace-all-classes
++        jnp.zeros(shape, dtype))
+ 
+   def to_array(self) -> jnp.ndarray:
+     return jnp.stack([self.x, self.y, self.z], axis=-1)
+diff -b -u -r alphafold/model/layer_stack_test.py ../alphafold_v2.2/alphafold/model/layer_stack_test.py
+--- alphafold/model/layer_stack_test.py	2023-01-04 10:52:36.394099425 -0500
++++ ../alphafold_v2.2/alphafold/model/layer_stack_test.py	2022-05-09 17:08:36.403921795 -0400
+@@ -198,7 +198,7 @@
+     assert_fn = functools.partial(
+         np.testing.assert_allclose, atol=1e-4, rtol=1e-4)
+ 
+-    jax.tree_map(assert_fn, unrolled_grad,
++    jax.tree_multimap(assert_fn, unrolled_grad,
+                  _slice_layers_params(layer_stack_grad))
+ 
+   def test_random(self):
+diff -b -u -r alphafold/model/mapping.py ../alphafold_v2.2/alphafold/model/mapping.py
+--- alphafold/model/mapping.py	2023-01-04 10:52:31.693043025 -0500
++++ ../alphafold_v2.2/alphafold/model/mapping.py	2022-05-09 17:08:36.408921860 -0400
+@@ -125,7 +125,7 @@
+     # Expand in axes and Determine Loop range
+     in_axes_ = _expand_axes(in_axes, args)
+ 
+-    in_sizes = jax.tree_map(_maybe_get_size, args, in_axes_)
++    in_sizes = jax.tree_multimap(_maybe_get_size, args, in_axes_)
+     flat_sizes = jax.tree_flatten(in_sizes)[0]
+     in_size = max(flat_sizes)
+     assert all(i in {in_size, -1} for i in flat_sizes)
+@@ -137,7 +137,7 @@
+     last_shard_size = shard_size if last_shard_size == 0 else last_shard_size
+ 
+     def apply_fun_to_slice(slice_start, slice_size):
+-      input_slice = jax.tree_map(
++      input_slice = jax.tree_multimap(
+           lambda array, axis: _maybe_slice(array, slice_start, slice_size, axis
+                                           ), args, in_axes_)
+       return fun(*input_slice)
+@@ -158,11 +158,11 @@
+             shard_shape[axis] * num_extra_shards +
+             remainder_shape[axis],) + shard_shape[axis + 1:]
+ 
+-      out_shapes = jax.tree_map(make_output_shape, out_axes_, shard_shapes,
++      out_shapes = jax.tree_multimap(make_output_shape, out_axes_, shard_shapes,
+                                 out_shapes)
+ 
+     # Calls dynamic Update slice with different argument order
+-    # This is here since tree_map only works with positional arguments
++    # This is here since tree_multimap only works with positional arguments
+     def dynamic_update_slice_in_dim(full_array, update, axis, i):
+       return jax.lax.dynamic_update_slice_in_dim(full_array, update, i, axis)
+ 
+@@ -170,7 +170,7 @@
+       slice_out = apply_fun_to_slice(slice_start, slice_size)
+       update_slice = partial(
+           dynamic_update_slice_in_dim, i=slice_start)
+-      return jax.tree_map(update_slice, outputs, slice_out, out_axes_)
++      return jax.tree_multimap(update_slice, outputs, slice_out, out_axes_)
+ 
+     def scan_iteration(outputs, i):
+       new_outputs = compute_shard(outputs, i, shard_size)
+@@ -181,7 +181,7 @@
+     def allocate_buffer(dtype, shape):
+       return jnp.zeros(shape, dtype=dtype)
+ 
+-    outputs = jax.tree_map(allocate_buffer, out_dtypes, out_shapes)
++    outputs = jax.tree_multimap(allocate_buffer, out_dtypes, out_shapes)
+ 
+     if slice_starts.shape[0] > 0:
+       outputs, _ = hk.scan(scan_iteration, outputs, slice_starts)
+diff -b -u -r alphafold/model/model.py ../alphafold_v2.2/alphafold/model/model.py
+--- alphafold/model/model.py	2023-03-07 11:25:54.609434596 -0500
++++ ../alphafold_v2.2/alphafold/model/model.py	2022-07-25 01:19:22.277499440 -0400
+@@ -27,10 +27,10 @@
+ import tensorflow.compat.v1 as tf
+ import tree
+ 
++
+ def get_confidence_metrics(
+     prediction_result: Mapping[str, Any],
+-    multimer_mode: bool,
+-    interfaces: list) -> Mapping[str, Any]:
++    multimer_mode: bool) -> Mapping[str, Any]:
+   """Post processes prediction_result to get confidence metrics."""
+   confidence_metrics = {}
+   confidence_metrics['plddt'] = confidence.compute_plddt(
+@@ -43,20 +43,6 @@
+         logits=prediction_result['predicted_aligned_error']['logits'],
+         breaks=prediction_result['predicted_aligned_error']['breaks'],
+         asym_id=None)
+-
+-    if len(interfaces)!=0:
+-      iptm=[]
+-      for interface in interfaces:
+-        new_asym_id=prediction_result['predicted_aligned_error']['asym_id']
+-        for old_index, new_index in enumerate(interface):
+-          new_asym_id=np.where(new_asym_id==old_index+1, new_index, new_asym_id)
+-        iptm.append(confidence.predicted_tm_score(
+-              logits=prediction_result['predicted_aligned_error']['logits'],
+-              breaks=prediction_result['predicted_aligned_error']['breaks'],
+-              asym_id=new_asym_id,
+-              interface=True))
+-      confidence_metrics['custom_iptm'] = iptm
+-
+     if multimer_mode:
+       # Compute the ipTM only for the multimer model.
+       confidence_metrics['iptm'] = confidence.predicted_tm_score(
+@@ -163,7 +149,7 @@
+   def predict(self,
+               feat: features.FeatureDict,
+               random_seed: int,
+-              interfaces: list) -> Mapping[str, Any]:
++              ) -> Mapping[str, Any]:
+     """Makes a prediction by inferencing the model on the provided features.
+ 
+     Args:
+@@ -185,7 +171,7 @@
+     # all outputs are blocked on.
+     jax.tree_map(lambda x: x.block_until_ready(), result)
+     result.update(
+-        get_confidence_metrics(result, multimer_mode=self.multimer_mode, interfaces=interfaces))
++        get_confidence_metrics(result, multimer_mode=self.multimer_mode))
+     logging.info('Output shape was %s',
+                  tree.map_structure(lambda x: x.shape, result))
+     return result
+diff -b -u -r alphafold/model/tf/protein_features_test.py ../alphafold_v2.2/alphafold/model/tf/protein_features_test.py
+--- alphafold/model/tf/protein_features_test.py	2023-01-04 10:52:38.804128340 -0500
++++ ../alphafold_v2.2/alphafold/model/tf/protein_features_test.py	2022-05-09 17:08:36.429922135 -0400
+@@ -27,10 +27,6 @@
+ 
+ class FeaturesTest(parameterized.TestCase, tf.test.TestCase):
+ 
+-  def setUp(self):
+-    super().setUp()
+-    tf.disable_v2_behavior()
+-
+   def testFeatureNames(self):
+     self.assertEqual(len(protein_features.FEATURE_SIZES),
+                      len(protein_features.FEATURE_TYPES))
+@@ -51,4 +47,5 @@
+ 
+ 
+ if __name__ == '__main__':
++  tf.disable_v2_behavior()
+   absltest.main()
+diff -b -u -r alphafold/model/tf/shape_helpers_test.py ../alphafold_v2.2/alphafold/model/tf/shape_helpers_test.py
+--- alphafold/model/tf/shape_helpers_test.py	2023-01-04 10:52:36.488100553 -0500
++++ ../alphafold_v2.2/alphafold/model/tf/shape_helpers_test.py	2022-05-09 17:08:36.433922187 -0400
+@@ -21,10 +21,6 @@
+ 
+ class ShapeTest(tf.test.TestCase):
+ 
+-  def setUp(self):
+-    super().setUp()
+-    tf.disable_v2_behavior()
+-
+   def test_shape_list(self):
+     """Test that shape_list can allow for reshaping to dynamic shapes."""
+     a = tf.zeros([10, 4, 4, 2])
+@@ -39,4 +35,5 @@
+ 
+ 
+ if __name__ == '__main__':
++  tf.disable_v2_behavior()
+   tf.test.main()
+diff -b -u -r alphafold/model/utils.py ../alphafold_v2.2/alphafold/model/utils.py
+--- alphafold/model/utils.py	2023-01-04 10:52:35.212085244 -0500
++++ ../alphafold_v2.2/alphafold/model/utils.py	2022-05-09 17:08:36.437922240 -0400
+@@ -34,7 +34,7 @@
+ 
+ def batched_gather(params, indices, axis=0, batch_dims=0):
+   """Implements a JAX equivalent of `tf.gather` with `axis` and `batch_dims`."""
+-  take_fn = lambda p, i: jnp.take(p, i, axis=axis, mode='clip')
++  take_fn = lambda p, i: jnp.take(p, i, axis=axis)
+   for _ in range(batch_dims):
+     take_fn = jax.vmap(take_fn)
+   return take_fn(params, indices)
+@@ -54,7 +54,7 @@
+     axis = [axis]
+   elif axis is None:
+     axis = list(range(len(mask_shape)))
+-  assert isinstance(axis, collections.abc.Iterable), (
++  assert isinstance(axis, collections.Iterable), (
+       'axis needs to be either an iterable, integer or "None"')
+ 
+   broadcast_factor = 1.
+diff -b -u -r alphafold/notebooks/notebook_utils.py ../alphafold_v2.2/alphafold/notebooks/notebook_utils.py
+--- alphafold/notebooks/notebook_utils.py	2023-01-04 10:52:50.097263828 -0500
++++ ../alphafold_v2.2/alphafold/notebooks/notebook_utils.py	2022-05-09 17:08:36.440922279 -0400
+@@ -169,25 +169,14 @@
+ 
+ 
+ def get_pae_json(pae: np.ndarray, max_pae: float) -> str:
+-  """Returns the PAE in the same format as is used in the AFDB.
+-
+-  Note that the values are presented as floats to 1 decimal place,
+-  whereas AFDB returns integer values.
+-
+-  Args:
+-    pae: The n_res x n_res PAE array.
+-    max_pae: The maximum possible PAE value.
+-  Returns:
+-    PAE output format as a JSON string.
+-  """
+-  # Check the PAE array is the correct shape.
+-  if (pae.ndim != 2 or pae.shape[0] != pae.shape[1]):
+-    raise ValueError(f'PAE must be a square matrix, got {pae.shape}')
+-
+-  # Round the predicted aligned errors to 1 decimal place.
++  """Returns the PAE in the same format as is used in the AFDB."""
+   rounded_errors = np.round(pae.astype(np.float64), decimals=1)
+-  formatted_output = [{
+-      'predicted_aligned_error': rounded_errors.tolist(),
+-      'max_predicted_aligned_error': max_pae
+-  }]
+-  return json.dumps(formatted_output, indent=None, separators=(',', ':'))
++  indices = np.indices((len(rounded_errors), len(rounded_errors))) + 1
++  indices_1 = indices[0].flatten().tolist()
++  indices_2 = indices[1].flatten().tolist()
++  return json.dumps(
++      [{'residue1': indices_1,
++        'residue2': indices_2,
++        'distance': rounded_errors.flatten().tolist(),
++        'max_predicted_aligned_error': max_pae}],
++      indent=None, separators=(',', ':'))
+diff -b -u -r alphafold/notebooks/notebook_utils_test.py ../alphafold_v2.2/alphafold/notebooks/notebook_utils_test.py
+--- alphafold/notebooks/notebook_utils_test.py	2023-01-04 10:52:50.117264068 -0500
++++ ../alphafold_v2.2/alphafold/notebooks/notebook_utils_test.py	2022-05-09 17:08:36.441922292 -0400
+@@ -194,8 +194,9 @@
+     pae = np.array([[0.01, 13.12345], [20.0987, 0.0]])
+     pae_json = notebook_utils.get_pae_json(pae=pae, max_pae=31.75)
+     self.assertEqual(
+-        pae_json, '[{"predicted_aligned_error":[[0.0,13.1],[20.1,0.0]],'
+-        '"max_predicted_aligned_error":31.75}]')
++        pae_json,
++        '[{"residue1":[1,1,2,2],"residue2":[1,2,1,2],"distance":'
++        '[0.0,13.1,20.1,0.0],"max_predicted_aligned_error":31.75}]')
+ 
+ 
+ if __name__ == '__main__':
