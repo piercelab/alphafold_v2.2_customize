@@ -42,9 +42,6 @@ from alphafold.relax import relax
 import numpy as np
 import pickle as pkl
 
-# Internal import (7716).
-sys.path.insert(1,"/piercehome/yinr/alphafold/alphafold_v2.2_customized_stable/")
-
 logging.set_verbosity(logging.INFO)
 
 flags.DEFINE_list(
@@ -54,7 +51,7 @@ flags.DEFINE_list(
     'separated by commas. All FASTA paths must have a unique basename as the '
     'basename is used to name the output directories for each prediction.')
 
-flags.DEFINE_string('data_dir', "/piercehome/alphafold/genetic_databases/", 'Path to directory of supporting data.')
+flags.DEFINE_string('data_dir', None, 'Path to directory of supporting data.')
 flags.DEFINE_string('output_dir', None, 'Path to a directory that will '
                     'store the results.')
 flags.DEFINE_string('jackhmmer_binary_path', shutil.which('jackhmmer'),
@@ -69,27 +66,27 @@ flags.DEFINE_string('hmmbuild_binary_path', shutil.which('hmmbuild'),
                     'Path to the hmmbuild executable.')
 flags.DEFINE_string('kalign_binary_path', shutil.which('kalign'),
                     'Path to the Kalign executable.')
-flags.DEFINE_string('uniref90_database_path', "/piercehome/alphafold/genetic_databases/uniref90/uniref90.fasta", 'Path to the Uniref90 '
+flags.DEFINE_string('uniref90_database_path', None, 'Path to the Uniref90 '
                     'database for use by JackHMMER.')
-flags.DEFINE_string('mgnify_database_path', "/piercehome/alphafold/genetic_databases/mgnify/mgy_clusters_2018_12.fa", 'Path to the MGnify '
+flags.DEFINE_string('mgnify_database_path', None, 'Path to the MGnify '
                     'database for use by JackHMMER.')
-flags.DEFINE_string('bfd_database_path', "/piercehome/alphafold/genetic_databases/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt", 'Path to the BFD '
+flags.DEFINE_string('bfd_database_path', None, 'Path to the BFD '
                     'database for use by HHblits.')
 flags.DEFINE_string('small_bfd_database_path', None, 'Path to the small '
                     'version of BFD used with the "reduced_dbs" preset.')
-flags.DEFINE_string('uniclust30_database_path', "/piercehome/alphafold/genetic_databases/uniclust30/uniclust30_2018_08/uniclust30_2018_08", 'Path to the Uniclust30 '
+flags.DEFINE_string('uniclust30_database_path', None, 'Path to the Uniclust30 '
                     'database for use by HHblits.')
-flags.DEFINE_string('uniprot_database_path', "/piercehome/alphafold/genetic_databases/uniprot/uniprot.fasta", 'Path to the Uniprot '
+flags.DEFINE_string('uniprot_database_path', None, 'Path to the Uniprot '
                     'database for use by JackHMMer.')
-flags.DEFINE_string('pdb70_database_path', "/piercehome/alphafold/genetic_databases/pdb70/pdb70", 'Path to the PDB70 '
+flags.DEFINE_string('pdb70_database_path', None, 'Path to the PDB70 '
                     'database for use by HHsearch.')
-flags.DEFINE_string('pdb_seqres_database_path', "/piercehome/alphafold/genetic_databases/pdb_seqres/pdb_seqres.txt", 'Path to the PDB '
+flags.DEFINE_string('pdb_seqres_database_path', None, 'Path to the PDB '
                     'seqres database for use by hmmsearch.')
-flags.DEFINE_string('template_mmcif_dir', "/piercehome/alphafold/genetic_databases/pdb_mmcif/mmcif_files/", 'Path to a directory with '
+flags.DEFINE_string('template_mmcif_dir', None, 'Path to a directory with '
                     'template mmCIF structures, each named <pdb_id>.cif')
 flags.DEFINE_string('max_template_date', None, 'Maximum template release date '
                     'to consider. Important if folding historical test sets.')
-flags.DEFINE_string('obsolete_pdbs_path', "/piercehome/alphafold/genetic_databases/pdb_mmcif/obsolete.dat", 'Path to file containing a '
+flags.DEFINE_string('obsolete_pdbs_path', None, 'Path to file containing a '
                     'mapping from obsolete PDB IDs to the PDB IDs of their '
                     'replacements.')
 flags.DEFINE_enum('db_preset', 'full_dbs',
