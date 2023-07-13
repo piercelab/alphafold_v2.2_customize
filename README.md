@@ -8,12 +8,15 @@ A brief description of your project goes here.
 - [Features](#features)
 - [Installation](#installation)
 - [Usage](#usage)
-- [Contributing](#contributing)
 - [License](#license)
 
-## Project Description
+# Project Description
 
-Provide a more detailed overview of your project. Include information such as the purpose, key features, and any relevant background information.
+This code repository offers a modified version of AlphaFold for users who wish to utilize it in their endeavors. The provided code is the one we utilized to generate AlphaFold predictions with adjusted parameters.
+
+For more detailed information, please refer to the following preprint:
+
+Yin R, Pierce BG. "Evaluation of AlphaFold Antibody-Antigen Modeling with Implications for Improving Predictive Accuracy". bioRxiv 2023.07.05.547832. [bioRxiv preprint](https://doi.org/10.1101/2023.07.05.547832)
 
 ## Features
 
@@ -32,7 +35,7 @@ Install alphaFold requirements in a conda environment. Here's a useful resource 
 
 #### Generate template alignment file
 
-AlphaFold has the capability to use up to four PDBs as templates per chain. The script included in the `generate_alignment_demo` folder demonstrates how to generate an alignment file to use one PDB as a chain template.
+AlphaFold has the capability to use up to four PDBs as templates per chain. The script included in the `generate_alignment_demo` folder demonstrates how to generate an alignment file to use one PDB as a chain template. You can modify the script to build alignment file for up to four templates per chain.
 
 The alignment file instructs the program on how to map chain sequences from AlphaFold models to residues in the template/PDB. The script is adapted from [`predict_utils.py`](https://github.com/phbradley/alphafold_finetune/blob/main/predict_utils.py) of the [alphafold_finetune](https://github.com/phbradley/alphafold_finetune) repository.
 
@@ -53,7 +56,6 @@ python generate_per_chain_template_alignment.py demo.pdb QVQLQQSGAELMKPGASVKISCK
 ```
 
 We have included the resulting `demo.align.tsv` file in `expected.demo.align.tsv` for your reference.
-
 
 ### Save MSA to a file
 
@@ -82,19 +84,10 @@ For example, if the pdb file is `ranked_0.pdb`, and the interface is formed by t
 perl get_interface_plddt.pl ranked_0.pdb AB C 4
 ```
 
-## Contributing
-
-Explain how others can contribute to your project. Provide guidelines for submitting bug reports, feature requests, or pull requests.
-
 ## License
 Apache License 2.0
 
 ## Acknowledgements
 
 We would like to thank [alphafold](https://github.com/deepmind/alphafold/), [alphafold_finetune](https://github.com/phbradley/alphafold_finetune), [ColabFold](https://github.com/sokrypton/ColabFold) teams for developing and distributing the code. The content inside alphafold/ folder is modified from [alphafold/](https://github.com/deepmind/alphafold/releases/tag/v2.2.0) of [alphafold](https://github.com/deepmind/alphafold/) repository. The featurization of custom template is modified from [predict_utils.py](https://github.com/phbradley/alphafold_finetune/blob/main/predict_utils.py) of [alphafold_finetune](https://github.com/phbradley/alphafold_finetune). Chain break introduction, as well as making mock template feature steps are modified from [batch.py](https://github.com/sokrypton/ColabFold/blob/aa7284b56c7c6ce44e252787011a6fd8d2817f85/colabfold/batch.py) of [ColabFold](https://github.com/sokrypton/ColabFold).
-
-
-Some functionalities include 
-1. use of user-defined PDB templates
-2. save msa to file
 
