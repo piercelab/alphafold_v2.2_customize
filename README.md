@@ -22,10 +22,13 @@ Yin R, Pierce BG. "Evaluation of AlphaFold Antibody-Antigen Modeling with Implic
 
 ## Features
 
+The modified AlphaFold allows one to do things such as:
 - Use custom PDB as template
 - Save MSA to a file
 - Generate "single_chain" (no MSA) predictions
 - Compute interface pLDDT of AlphaFold predictions
+
+The script `run_alphafold_customized.py` is the key to calling all the modified functions. To run the script, one needs to provide command line arguments that defines the path to AlphaFold databases (or modify the default value of the path in the script so that you don't need to set it every time you call the python script) and provide path to fasta file (fasta_paths). Those are mandatory arguments that must be provided to the script. Then, you can read the script, pick the arguments that interest you, and mix-and-match!
 
 ## Installation
 
@@ -40,7 +43,7 @@ AlphaFold has the capability to use up to four PDBs as templates per chain. The 
 
 The alignment file instructs the program on how to map chain sequences from AlphaFold models to residues in the template/PDB. The script is adapted from [`predict_utils.py`](https://github.com/phbradley/alphafold_finetune/blob/main/predict_utils.py) of the [alphafold_finetune](https://github.com/phbradley/alphafold_finetune) repository.
 
-### Usage
+#### Usage
 
 ```shell
 python generate_per_chain_template_alignment.py <pdb_path> <reference_sequence> <output_tsv_file>
@@ -57,7 +60,25 @@ python generate_per_chain_template_alignment.py demo.pdb QVQLQQSGAELMKPGASVKISCK
 ```
 
 We have included the resulting `demo.align.tsv` file in `expected.demo.align.tsv` for your reference.
+### Using the Template Alignment File in AlphaFold
 
+Once you have generated the alignment TSV file, you can utilize it in AlphaFold by passing it as a command-line argument to `run_alphafold_customized`. To do this, make use of the following two arguments:
+
+```
+--use_custom_templates=True
+--template_alignfile=<path_to_template_alignment_files>
+```
+
+Regarding `<path_to_template_alignment_files>`:
+
+This argument expects the path to the custom template file(s). If the target is a monomer, provide the template path for the monomer chain. If it's a multimer, provide all template alignment files in the order they appear in the target, separated by commas. If a chain does not require a template, or if you don't want to use any template for that chain, leave the path blank. To use the default AlphaFold pipeline for generating the template for a specific chain, write "UseDefaultTemplate". 
+
+Concretely, if you have a three-chain target. First chain has a customized template alignment file demo.align.tsv. For second chain you don't want to use template. For the third chain you want to use default AlphaFold pipeline for generating template. You will input:
+
+```
+--use_custom_templates=True
+--template_alignfile=demo.align.tsv,,UseDefaultTemplate
+```
 
 ## Interface pLDDT score
 
@@ -88,8 +109,19 @@ perl get_interface_plddt.pl ranked_0.pdb AB C 4
 
 ### Save MSA to a file
 
+Use the following argument to save MSA to files:
+
+```
+--save_msa_fasta=True
+```
+
 ### Generate "single_chain" (no MSA) predictions
 
+Use the following argument to NOT use MSA:
+
+```
+--msa_mode=single_sequence
+```
 
 
 ## License
