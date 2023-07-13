@@ -1,4 +1,4 @@
-#copied from https://github.com/phbradley/alphafold_finetune/blob/main/predict_utils.py
+#copied and modified from https://github.com/phbradley/alphafold_finetune/blob/main/predict_utils.py
 from alphafold.common import residue_constants
 from alphafold.data import templates
 import numpy as np
@@ -111,10 +111,6 @@ def fill_afold_coords(
                     name = name[1:]
                 if name[0] != 'H':
                     print('unrecognized atom:', atom_name, chain, resid)
-            # elif atom_name.upper() == 'SE' and res.get_resname() == 'MSE':
-            #     # Put the coordinates of the selenium atom in the sulphur column.
-            #     pos[residue_constants.atom_order['SD']] = [x, y, z]
-            #     mask[residue_constants.atom_order['SD']] = 1.0
 
         all_positions[res_index] = pos
         all_positions_mask[res_index] = mask
@@ -140,9 +136,6 @@ def create_single_template_features(
     crs_tmp = [(c,r) for c in chains_tmp for r in all_resids_tmp[c]]
     num_res_tmp = len(crs_tmp)
     template_full_sequence = ''.join(all_name1s_tmp[c][r] for c,r in crs_tmp)
-
-    # if expected_template_len:
-    #     assert len(template_full_sequence) == expected_template_len
 
     all_positions_tmp, all_positions_mask_tmp = fill_afold_coords(
         chains_tmp, all_resids_tmp, all_coords_tmp)
@@ -214,15 +207,8 @@ def mk_mock_template(query_sequence: Union[List[str], str], num_temp: int = 1):
         ),
         "template_sequence": [f"none".encode()] * num_temp,
         "template_aatype": np.tile(np.array(templates_aatype)[None], [num_temp, 1, 1]),
-        # "template_confidence_scores": np.tile(
-        #     output_confidence_scores[None], [num_temp, 1]
-        # ),
         "template_domain_names": np.array([f"none".encode()] * num_temp),
-        # "template_release_date": [f"none".encode()] * num_temp,
         "template_sum_probs": np.zeros([num_temp], dtype=np.float32),
     }
-    # all_template_features=compile_template_features([template_features])
     return TemplateSearchResult(features=template_features)
 
-
-    # return all_template_features

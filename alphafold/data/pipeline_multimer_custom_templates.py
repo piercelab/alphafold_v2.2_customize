@@ -255,36 +255,11 @@ class DataPipeline:
   def _mock_all_seq_msa_features(self, sequence):
     
     """Get MSA features for unclustered uniprot, for pairing."""
-    # out_path = os.path.join(msa_output_dir, 'uniprot_hits.sto')
-    # result = pipeline.run_msa_tool(
-    #     self._uniprot_msa_runner, input_fasta_path, out_path, 'sto',
-    #     self.use_precomputed_msas)
-    # msa = parsers.parse_stockholm(result['sto'])
-    # msa = msa.truncate(max_seqs=self._max_uniprot_hits)
     from alphafold.data import  pipeline_custom_templates
     all_seq_features = pipeline_custom_templates.make_mock_msa_features([sequence])
-    # valid_feats = msa_pairing.MSA_FEATURES + (
-    #     'msa_species_identifiers',
-    # )
-    feats = {f'{k}_all_seq': v for k, v in all_seq_features.items()}
-            #  if k in valid_feats}
-    return feats
 
-  # def _all_seq_msa_features_customized(self, input_fasta_path, msa_output_dir):
-  #   """Get MSA features for unclustered uniprot, for pairing."""
-  #   out_path = os.path.join(msa_output_dir, 'uniprot_hits.sto')
-  #   result = pipeline.run_msa_tool(
-  #       self._uniprot_msa_runner, input_fasta_path, out_path, 'sto',
-  #       self.use_precomputed_msas)
-  #   msa = parsers.parse_stockholm(result['sto'])
-  #   msa = msa.truncate(max_seqs=self._max_uniprot_hits)
-  #   all_seq_features = pipeline.make_msa_features([msa])
-  #   valid_feats = msa_pairing.MSA_FEATURES + (
-  #       'msa_species_identifiers',
-  #   )
-  #   feats = {f'{k}_all_seq': v for k, v in all_seq_features.items()
-  #            if k in valid_feats}
-  #   return feats
+    feats = {f'{k}_all_seq': v for k, v in all_seq_features.items()}
+    return feats
 
   def _all_seq_msa_features(self, input_fasta_path, msa_output_dir):
     """Get MSA features for unclustered uniprot, for pairing."""

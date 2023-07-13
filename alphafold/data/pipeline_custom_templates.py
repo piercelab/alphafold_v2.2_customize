@@ -241,12 +241,7 @@ class DataPipeline:
     """Runs alignment tools on the input sequence and creates features."""
     with open(input_fasta_path) as f:
       input_fasta_str = f.read()
-    print(input_fasta_str)
     input_seqs, input_descs = parsers.parse_fasta(input_fasta_str)
-    print("length of input_seqs is %d:" % len(input_seqs[0]))
-    # if len(input_seqs) != 1:
-    #   raise ValueError(
-    #       f'More than one input sequence found in {input_fasta_path}.')
     input_sequence = "".join(input_seqs[0])
     logging.info("input_sequence is %s" % input_sequence)
     input_description = input_descs[0]
@@ -334,7 +329,6 @@ class DataPipeline:
         counter=1
         for seq in msa_features['msa']:
             seq=[residue_constants.ID_TO_HHBLITS_AA[num] for num in seq]
-            # for x in range(len(seq)):
             counter+=1
             fh.write(">seq_"+str(counter)+"\n")
             out="".join(seq).replace("-","U")
@@ -380,11 +374,8 @@ class DataPipeline:
       #update the templates
       if len(template_alignfile)==0:
         templates_result=mk_mock_template(input_sequence)
-        # print(templates_result.features['template_domain_names'])
       else:
         data = pd.read_table(template_alignfile)
-        # cols = ('template_pdbfile target_to_template_alignstring identities '
-        #         'target_len template_len'.split())
         template_features_list = []
         for tnum, row in data.iterrows():
             target_to_template_alignment = {
@@ -412,7 +403,6 @@ class DataPipeline:
         description=input_description,
         num_res=num_res)
 
-    # if len(input_seqs[0]) > 1:
     if isinstance(input_seqs[0], list):
       print("There are %d semi-colon seperated chains in this chain. Therefore updating the residue_index now" % len(input_seqs[0]))
       # Minkyung's code
