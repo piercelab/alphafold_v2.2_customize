@@ -1,6 +1,5 @@
 # Customized DeepMind AlphaFold v.2.2.0 
 
-A brief description of your project goes here.
 
 ## Table of Contents
 
