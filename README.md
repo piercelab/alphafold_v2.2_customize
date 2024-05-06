@@ -15,9 +15,11 @@
 
 This code repository offers a modified version of AlphaFold for users who wish to utilize it in their endeavors. The provided code is the one we utilized to generate AlphaFold predictions with adjusted parameters.
 
-For more detailed information, please refer to the following preprint:
+For more detailed information, please refer to the following paper:
 
-Yin R, Pierce BG. "Evaluation of AlphaFold Antibody-Antigen Modeling with Implications for Improving Predictive Accuracy". bioRxiv 2023.07.05.547832. [bioRxiv preprint](https://doi.org/10.1101/2023.07.05.547832)
+Yin R, Pierce BG. Evaluation of AlphaFold antibody-antigen modeling with implications
+for improving predictive accuracy. Protein Science. 2024 Jan;33(1):e4865. doi:
+10.1002/pro.4865. PMID: 38073135; PMCID: PMC10751731. 
 
 ## Features
 
@@ -42,8 +44,26 @@ AlphaFold has the capability to use up to four PDBs as templates per chain. The 
 
 The alignment file instructs the program on how to map chain sequences from AlphaFold models to residues in the template/PDB. The script is adapted from [`predict_utils.py`](https://github.com/phbradley/alphafold_finetune/blob/main/predict_utils.py) of the [alphafold_finetune](https://github.com/phbradley/alphafold_finetune) repository.
 
-#### Usage
+#### Usage 
 
+We have provided two python scripts for generating alignment tsv file. 
+##### Kalign alignment
+```shell
+python generate_per_chain_template_alignment_kalign.py <pdb_path> <reference_sequence> <output_tsv_file> <path_to_alphafold>
+```
+
+- `pdb_path`: The path to the template PDB. We recommend using an absolute path so that the program can retrieve the file for template featurization at runtime, even when running AlphaFold from different directories.
+- `reference_sequence`: The sequence of the chain you input to AlphaFold.
+- `output_tsv_file`: The path to the desired output TSV file.
+- `path_to_alphafold`: The path to the AlphaFold code.
+
+For example:
+
+```shell
+python generate_per_chain_template_alignment_kalign.py demo.pdb QVQLQQSGAELMKPGASVKISCKATGYTFSGHWIEWVKQRPGHGLEWIGEILPGSGNIHYNEKFKGKATFAADTSSNTAYMQLSSLTSEDSAVYYCARLGTTAVERDWYFDVWGAGTTVTVSL demo.align.tsv alphafold_v2.2_customized/
+```
+
+##### Biopython alignment
 ```shell
 python generate_per_chain_template_alignment.py <pdb_path> <reference_sequence> <output_tsv_file>
 ```
@@ -59,6 +79,7 @@ python generate_per_chain_template_alignment.py demo.pdb QVQLQQSGAELMKPGASVKISCK
 ```
 
 We have included the resulting `demo.align.tsv` file in `expected.demo.align.tsv` for your reference.
+
 ### Using the Template Alignment File in AlphaFold
 
 Once you have generated the alignment TSV file, you can utilize it in AlphaFold by passing it as a command-line argument to `run_alphafold_customized`. To do this, make use of the following two arguments:
